@@ -123,6 +123,7 @@ def parse_csv_labels(fn, skip_header=True, cat_separator = ' '):
     df = pd.read_csv(fn, index_col=0, header=0 if skip_header else None, dtype=str)
     fnames = df.index.values
     df.iloc[:,0] = df.iloc[:,0].str.split(cat_separator)
+    df.iloc[:,0] = df.iloc[:,0].apply(lambda x: [] if isinstance(x, float) and math.isnan(x) else x)
     return sorted(fnames), list(df.to_dict().values())[0]
 
 def nhot_labels(label2idx, csv_labels, fnames, c):
