@@ -219,7 +219,12 @@ def validate(stepper, dl, metrics):
             else: batch_cnts.append(len(x))
             loss.append(to_np(l))
             res.append([f(preds.data, y) for f in metrics])
-    return [np.average(loss, 0, weights=batch_cnts)] + list(np.average(np.stack(res), 0, weights=batch_cnts))
+    res_np = np.stack(res)
+    batch_cnts_np = np.array(batch_cnts)
+    batch_cnts_np = np.repeat(batch_cnts_np[:, np.newaxis], res_np.shape[1], axis=1) / \
+        np.expand_dims(
+                np.sum(np.invert(np.isnan(res_np)) * np.expand_dims(batch_cnts_np, 1), 0), 0)
+    return [np.average(loss, 0, weights=batch_cnts)] + list(np.nanmean(res_np*batch_cnts_np, 0))
 
 def get_prediction(x):
     if is_listy(x): x=x[0]
