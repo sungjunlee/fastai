@@ -215,18 +215,24 @@ def validate(stepper, dl, metrics):
     with no_grad_context():
         for (*x,y) in iter(dl):
             preds, l = stepper.evaluate(VV(x), VV(y))
-            if isinstance(x,list): nz_cnt = len(x[0])
-            if len(y.shape) == 2 and len(preds.shape) == 2:
-                nz_flag = y.sum(1).gt(0)
-                y = y[nz_flag, :]
-                preds = preds[nz_flag, :]
-                nz_cnt = nz_flag.sum().cpu().numpy()
-                if nz_cnt == 0: continue
-            if isinstance(x,list): batch_cnts.append(nz_cnt)
-            else: batch_cnts.append(len(x))
+            if isinstance(x,list): batch_cnt = len(x[0])
+            else: batch_cnt = len(x)
+            batch_cnts.append(batch_cnt)
             loss.append(to_np(l))
             res.append([f(preds.data, y) for f in metrics])
-    return [np.average(loss, 0, weights=batch_cnts)] + list(np.average(np.stack(res), 0, weights=batch_cnts))
+#            res.append(list(
+#                map(lambda e: e if isinstance(e, tuple) and len(e) == 2 else (e, len(x)), 
+#                [f(preds.data, y) for f in metrics])))
+    batch_cnts_m = np.array(batch_cnts).repeat(len(metrics), axis=0).reshape(len(batch_cnts), -1)
+    res_m = np.stack(res)
+    batch_cnts_m[np.isnan(res_m)] = 0
+    for ix in range(batch_cnts_m.shape[1]):
+        if batch_cnts_m[:,ix].sum() == 0:
+            batch_cnts_m[:,ix] = 1
+    res_m[np.isnan(res_m)] = 0
+
+    return [np.average(loss, 0, weights=batch_cnts)] + list(np.average(res_m, 0, weights=batch_cnts_m))
+#    return [np.average(loss, 0, weights=batch_cnts)] + list(np.average(np.stack(res_m), 0, weights=batch_cnts_m))
 
 def get_prediction(x):
     if is_listy(x): x=x[0]
